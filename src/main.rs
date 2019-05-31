@@ -6,23 +6,17 @@ mod config;
 mod opts;
 
 use std::env;
-use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use::clap::{crate_version, value_t};
-use slog::{Drain, Logger, info, o};
-use zookeeper::{ZkResult, ZooKeeper};
+use clap::{crate_version, value_t};
 use config::Config;
+use slog::{info, o, Drain, Logger};
+use zookeeper::{ZkResult, ZooKeeper};
 
 static APP: &'static str = "muppet";
 
-
-fn get_untrusted_ips(c: &Config) -> Vec<Ipv4Addr> {
-    std::unimplemented!();
-}
-
-fn zookeeper_session(c: &Config, uips: Vec<Ipv4Addr>) -> ZkResult<ZooKeeper> {
+fn zookeeper_session(c: &Config) -> ZkResult<ZooKeeper> {
     std::unimplemented!();
 }
 
@@ -31,18 +25,14 @@ fn start_watch(z: &ZooKeeper, c: &Config) {
 }
 
 fn main() {
-
     let matches = opts::parse(APP.to_string());
-
     let current_dir = env::current_dir().unwrap();
-    let default_config: PathBuf =
-        [current_dir, PathBuf::from("etc/config.json")].iter().collect();
-    let config_path = value_t!(matches, "file", PathBuf)
-        .unwrap_or(default_config);
-    println!("Value for config: {}", config_path.to_str().unwrap());
+    let default_config: PathBuf = [current_dir, PathBuf::from("etc/config.json")]
+        .iter()
+        .collect();
 
-    let config = config::read_file(config_path.as_path())
-        .expect("Failed to parse config");
+    let config_path = value_t!(matches, "file", PathBuf).unwrap_or(default_config);
+    let config = config::Config::from_file(config_path.as_path()).expect("Failed to parse config");
 
     //TODO: Runtime log handling
     // By default slog makes the decision on what log lines to include at
@@ -55,22 +45,15 @@ fn main() {
     }
 
     let root_log = Logger::root(
-        Mutex::new(
-            slog_bunyan::default(
-                std::io::stdout()
-            )
-        ).fuse(),
-        o!("build-id" => crate_version!())
+        Mutex::new(slog_bunyan::default(std::io::stdout())).fuse(),
+        o!("build-id" => crate_version!()),
     );
 
     info!(root_log, "muppet has started");
-
-    let untrusted_ips = get_untrusted_ips(&config);
-
-    let zk_result = zookeeper_session(&config, untrusted_ips);
+    let zk_result = zookeeper_session(&config);
 
     match zk_result {
         Ok(zk_session) => start_watch(&zk_session, &config),
-        Err(_)         =>     println!("Failed to connect to zk")
+        Err(_) => println!("Failed to connect to zk"),
     }
 }
