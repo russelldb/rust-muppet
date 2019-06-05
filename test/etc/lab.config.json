@@ -1,0 +1,23 @@
+{
+  "name": "manta.garage.local",
+  "trustedIP": "10.77.77.29",
+  "adminIPS":  "192.168.1.155",
+  "mantaIPS":  "10.77.77.29",
+  "zookeeper": {
+    "servers": [
+      {
+        "host": "10.77.77.6",
+        "port": 2181
+      }, 
+      {
+        "host": "10.77.77.7",
+        "port": 2181
+      }, 
+      {
+        "host": "10.77.77.8",
+        "port": 2181
+      }
+    ],
+    "timeout": 60000
+  }
+}

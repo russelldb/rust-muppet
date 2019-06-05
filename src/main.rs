@@ -50,6 +50,8 @@ fn main() {
     );
 
     info!(root_log, "muppet has started");
+
+    println!("config is {:?}", &config);
     let zk_result = zookeeper_session(&config);
 
     match zk_result {
