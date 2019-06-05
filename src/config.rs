@@ -46,11 +46,17 @@ pub struct ZookeeperServer {
     port: u32,
 }
 
-/// get sdc nic info from mdata-get to be added to config
-pub fn get_sdc_nics() -> Result<HashSet<IpAddr>, Box<Error>> {
-    // @TODO: use the logger from main
-    let nics_json = get_nics_mdata()?;
-    let sdc_nics: Vec<SdcNic> = serde_json::from_str(&nics_json)?;
+/// call mdata-get sdc:nics and return the resulting JSON as a string
+pub fn get_nics_mdata() -> Result<String, Box<Error>> {
+    // @TODO: error handling/logging
+    let output = Command::new("mdata-get").arg("sdc:nics").output()?;
+    let data = String::from_utf8(output.stdout)?;
+    return Ok(data);
+}
+
+/// parse sdc nic info (maybe from mdata-get)
+pub fn parse_sdc_nics(nics_json: &str) -> Result<HashSet<IpAddr>, Box<Error>> {
+    let sdc_nics: Vec<SdcNic> = serde_json::from_str(nics_json)?;
 
     // mdata sdc:nics used to have only an `ip` property. That
     // was changed later to be an array of `ips` each with a
@@ -90,8 +96,10 @@ pub fn get_sdc_nics() -> Result<HashSet<IpAddr>, Box<Error>> {
 }
 
 impl Config {
-    fn add_untrusted_ips(&mut self) -> Result<&mut Config, Box<Error>> {
-        let mut sdc_ips = get_sdc_nics()?;
+    /// update Config's internal untrustedIPs field with address from
+    /// mdata-get sdc:nics
+    pub fn add_untrusted_ips(&mut self, nics_json: &str) -> Result<&mut Config, Box<Error>> {
+        let mut sdc_ips = parse_sdc_nics(nics_json)?;
 
         if let Some(manta_ips) = &self.mantaIPs {
             sdc_ips = &sdc_ips - &manta_ips;
@@ -123,27 +131,18 @@ impl Config {
         // Read the JSON contents of the file as an instance of `Config`.
         let mut c: Config = serde_json::from_reader(reader)?;
 
-        c.add_untrusted_ips()?;
-
         Ok(c)
     }
 }
 
-/// call mdata-get sdc:nics and return the resulting JSON as a string
-fn get_nics_mdata() -> Result<String, Box<Error>> {
-    // @TODO: error handling/logging
-    let output = Command::new("mdata-get").arg("sdc:nics").output()?;
-    let data = String::from_utf8(output.stdout)?;
-    return Ok(data);
-}
-
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::env;
+    use std::net::IpAddr;
     use std::path::PathBuf;
 
-    /// Load a config from disk, and mock call mdata-get for untrusted
-    /// IP addresses
+    /// Load a config from disk, load untrusted ips.
     #[test]
     fn load_conf_and_untrusted() {
         let current_dir = env::current_dir().unwrap();
@@ -151,18 +150,89 @@ mod tests {
             .iter()
             .collect();
 
-        let config =
+        let mut config =
             super::Config::from_file(config_path.as_path()).expect("Failed to parse config");
+
+        // these are the IPs in the test data json, would be better to
+        // find a way to declare them once only
+        let expected: HashSet<IpAddr> = vec!["192.168.1.171", "192.168.118.13", "10.77.77.44"]
+            .iter_mut()
+            .map(|e| e.parse::<IpAddr>().unwrap())
+            .collect();
+
+        // I'd rather mock get_nics_mdata() but for now use some test
+        // data
+        config.add_untrusted_ips(MIX_SDC_NICS_TEST_DATA).unwrap();
 
         let utip = config.get_untrusted_ips();
         assert!(utip.is_some());
 
-        // FAILS @TODO mock the mdata-get bit
         match utip {
             Some(set) => {
-                assert_eq!(set.len(), 1, "Config only has 1 untrusted IP");
+                assert_eq!(set.len(), 3, "Config has 3 untrusted IPs");
+                assert_eq!(set, &expected);
             }
             None => (),
         }
     }
+
+    /// Static test data JSON outputs for test, a nice mix of records
+    /// with ips + ip, only ip, and no ips at all!
+    static MIX_SDC_NICS_TEST_DATA: &'static str = r#"
+    [
+       {
+          "ips" : [
+             "192.168.1.171/24"
+          ],
+          "mac" : "90:b8:d0:22:26:65",
+          "network_uuid" : "3f2b4e0d-6da6-4531-b018-a892e4c96b3c",
+          "mtu" : 1500,
+          "vlan_id" : 0,
+          "interface" : "net0",
+          "ip" : "192.168.1.171",
+          "netmask" : "255.255.255.0",
+          "nic_tag" : "admin"
+       },
+       {
+          "netmask" : "255.255.255.0",
+          "ip" : "192.168.118.13",
+          "gateways" : [
+             "192.168.118.1"
+          ],
+          "mac" : "90:b8:d0:8d:17:1d",
+          "vlan_id" : 0,
+          "nic_tag" : "external",
+          "primary" : true,
+          "interface" : "net1",
+          "gateway" : "192.168.118.1",
+          "network_uuid" : "c8854428-7a67-4a55-9f9c-9a9a8cbd4faf",
+          "mtu" : 1500
+         },
+       {
+          "ips" : [
+             "10.77.77.44/24"
+          ],
+          "vlan_id" : 0,
+          "mtu" : 1500,
+          "network_uuid" : "6e4b3fab-96fc-463e-b8bc-6d483638bb2c",
+          "mac" : "90:b8:d0:00:c0:aa",
+          "interface" : "net2",
+          "nic_tag" : "manta",
+          "netmask" : "255.255.255.0"
+       },
+       {
+          "mac" : "90:b8:d0:bd:4c:a6",
+          "vlan_id" : 0,
+          "netmask" : "255.255.255.0",
+          "gateways" : [
+             "10.66.66.2"
+          ],
+          "gateway" : "10.66.66.2",
+          "network_uuid" : "78d3dda3-2f27-42cc-8a88-81eefde25121",
+          "mtu" : 1500,
+          "nic_tag" : "mantanat",
+          "interface" : "net3"
+       }
+    ]"#;
+
 }
