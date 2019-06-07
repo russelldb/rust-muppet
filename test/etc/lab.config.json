@@ -1,8 +1,8 @@
 {
   "name": "manta.garage.local",
   "trustedIP": "10.77.77.29",
-  "adminIPS":  "192.168.1.155",
-  "mantaIPS":  "10.77.77.29",
+    "adminIPS":  ["192.168.1.155"],
+    "mantaIPS":  ["10.77.77.29"],
   "zookeeper": {
     "servers": [
       {

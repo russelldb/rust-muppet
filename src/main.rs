@@ -32,10 +32,13 @@ fn main() {
         .collect();
 
     let config_path = value_t!(matches, "file", PathBuf).unwrap_or(default_config);
+
     let mut config =
-        config::Config::from_file(config_path.as_path()).expect("Failed to parse config");
-    let sdc_nics = config::get_nics_mdata().unwrap();
-    config.add_untrusted_ips(&sdc_nics).unwrap();
+        config::Config::from_file(config_path.as_path()).expect("Failed to parse config file");
+
+    config
+        .populate_untrusted_ips()
+        .expect("Failed adding sdc nic ips to config");
 
     //TODO: Runtime log handling
     // By default slog makes the decision on what log lines to include at
