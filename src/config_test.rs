@@ -85,6 +85,42 @@ fn only_unconfigured_are_untrusted() {
     }
 }
 
+/// create a config, and some sdc nic ips, and verify that only those
+/// ips that are not explictly configured in some other capacity, get
+/// added as untrusted ips, in the case, there are NO untrusted Ips
+#[test]
+fn none_untrusted() {
+    let admin_ip = "192.168.1.171";
+    let manta_ip = "192.168.118.13";
+    let localhost = "127.0.0.1";
+
+    // don't load from disk, just make a config programatically
+    let mut config = Config {
+        name: MantaDomain(String::from("test")),
+        trusted_ip: localhost.parse::<IpAddr>().unwrap(),
+        admin_ips: Some(ips_to_hashset(vec![admin_ip])),
+        manta_ips: Some(ips_to_hashset(vec![manta_ip])),
+        untrusted_ips: None::<HashSet<IpAddr>>,
+        zookeeper: ZookeeperConfig {
+            servers: vec![ZookeeperServer {
+                host: String::from("zkhost"),
+                port: 9000,
+            }],
+            timeout: 1000,
+        },
+    };
+    // don't parse sdc:nics from JSON, just make them programatically
+    let sdc_ips = ips_to_hashset(vec![admin_ip, manta_ip, localhost]);
+
+    config.add_untrusted_ips(sdc_ips).unwrap();
+
+    if let None = config.get_untrusted_ips() {
+        assert!(true, "Expected no untrusted ips remaining");
+    } else {
+        assert!(false, "Expected no untrusted ips remaining");
+    }
+}
+
 /// Load a config from disk, load untrusted ips.
 #[test]
 fn load_conf_and_untrusted() {
