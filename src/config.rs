@@ -57,7 +57,7 @@ fn get_nics_mdata() -> Result<String, Box<Error>> {
     // @TODO: error handling/logging
     let output = Command::new("mdata-get").arg("sdc:nics").output()?;
     let data = String::from_utf8(output.stdout)?;
-    return Ok(data);
+    Ok(data)
 }
 
 /// parse sdc nic info (maybe from mdata-get)
@@ -98,7 +98,7 @@ fn parse_sdc_nics(nics_json: &str) -> Result<HashSet<IpAddr>, Box<Error>> {
     }
 
     let hs: HashSet<IpAddr> = sdc_ips.into_iter().collect();
-    return Ok(hs);
+    Ok(hs)
 }
 
 impl Config {
@@ -110,13 +110,13 @@ impl Config {
         // the muppet.js code this is transposed from either reads
         // untrusted_ips from the Config OR from sdc:nics, with config
         // taking precedence.
-        if let Some(_) = self.get_untrusted_ips() {
+        if self.get_untrusted_ips().is_some() {
             return Ok(self);
         }
 
         let sdc_nics_json = get_nics_mdata()?;
         let sdc_ips = parse_sdc_nics(&sdc_nics_json)?;
-        return self.add_untrusted_ips(sdc_ips);
+        self.add_untrusted_ips(sdc_ips)
     }
 
     /// Populate config.untrusted_ips from the given sdc_ips
@@ -129,11 +129,11 @@ impl Config {
         let mut sdc_ips = sdc_ips;
 
         if let Some(manta_ips) = &self.manta_ips {
-            sdc_ips = &sdc_ips - &manta_ips;
+            sdc_ips = &sdc_ips - manta_ips;
         }
 
         if let Some(admin_ips) = &self.admin_ips {
-            sdc_ips = &sdc_ips - &admin_ips;
+            sdc_ips = &sdc_ips - admin_ips;
         }
 
         sdc_ips.remove(&self.trusted_ip);
@@ -144,22 +144,22 @@ impl Config {
             self.untrusted_ips = Some(sdc_ips);
         }
 
-        return Ok(self);
+        Ok(self)
     }
 
     /// accessor for untrusted ips data member
     pub fn get_untrusted_ips(&self) -> &Option<HashSet<IpAddr>> {
-        return &self.untrusted_ips;
+        &self.untrusted_ips
     }
 
     /// accessor for manta ips data member
     pub fn get_manta_ips(&self) -> &Option<HashSet<IpAddr>> {
-        return &self.manta_ips;
+        &self.manta_ips
     }
 
     /// accessor for admin ips data member
     pub fn get_admin_ips(&self) -> &Option<HashSet<IpAddr>> {
-        return &self.admin_ips;
+        &self.admin_ips
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Config, Box<Error>> {

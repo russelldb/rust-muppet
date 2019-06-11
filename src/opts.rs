@@ -18,7 +18,7 @@ pub struct Opts<'l> {
 }
 
 impl<'l> Opts<'l> {
-    pub fn parse<'a, 'b>(app: String) -> Opts<'a> {
+    pub fn parse<'a>(app: String) -> Opts<'a> {
         // set up default config path
         let current_dir = env::current_dir().unwrap();
         let default_path: PathBuf = [current_dir, PathBuf::from("etc/config.json")]
@@ -55,7 +55,7 @@ impl<'l> Opts<'l> {
     pub fn get_config_path(&self) -> PathBuf {
         let matches = &self.matches;
         let default_path = &self.default_path;
-        value_t!(matches, "file", PathBuf).unwrap_or(default_path.to_path_buf())
+        value_t!(matches, "file", PathBuf).unwrap_or_else(|_| default_path.to_path_buf())
     }
 
     pub fn get_verbose_count(&self) -> u64 {

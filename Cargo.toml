@@ -1,7 +1,7 @@
 [package]
 name = "rust-muppet"
 version = "0.1.0"
-authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>"]
+authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>", "Russell Brown <russell.brown@joyent.com"]
 edition = "2018"
 
 [dependencies]
