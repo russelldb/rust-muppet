@@ -104,13 +104,27 @@ fn parse_sdc_nics(nics_json: &str) -> Result<HashSet<IpAddr>, Box<Error>> {
 impl Config {
     /// update Config's internal untrustedIPs field with address from
     /// mdata-get sdc:nics you must call this after creating a Config
-    /// with Config::from_file
+    /// with Config::from_file. NOTE: only if the existing config has
+    /// no untrusted IPs
     pub fn populate_untrusted_ips(&mut self) -> Result<&mut Config, Box<Error>> {
+        // the muppet.js code this is transposed from either reads
+        // untrusted_ips from the Config OR from sdc:nics, with config
+        // taking precedence.
+        if let Some(_) = self.get_untrusted_ips() {
+            return Ok(self);
+        }
+
         let sdc_nics_json = get_nics_mdata()?;
         let sdc_ips = parse_sdc_nics(&sdc_nics_json)?;
         return self.add_untrusted_ips(sdc_ips);
     }
 
+    /// Populate config.untrusted_ips from the given sdc_ips
+    /// hashset. Only ips that are not in some other way configured
+    /// are added as untrusted. This method overwrites existing
+    /// configured untrusted ips (NOTE: there should be none, it's a
+    /// private method used by `populate_untrusted_ips` above) to aid
+    /// testability
     fn add_untrusted_ips(&mut self, sdc_ips: HashSet<IpAddr>) -> Result<&mut Config, Box<Error>> {
         let mut sdc_ips = sdc_ips;
 

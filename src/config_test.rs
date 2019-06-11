@@ -12,6 +12,33 @@ fn ips_to_hashset(mut ips: Vec<&str>) -> HashSet<IpAddr> {
     return hs;
 }
 
+/// a config with untrusted IPs doesn't load more
+#[test]
+fn config_with_untrusted() {
+    let current_dir = env::current_dir().unwrap();
+    let config_path: PathBuf = [current_dir, PathBuf::from("test/etc/config.json")]
+        .iter()
+        .collect();
+
+    let mut config =
+        super::Config::from_file(config_path.as_path()).expect("Failed to parse config");
+
+    let untrusted = match config.get_untrusted_ips() {
+        None => HashSet::<IpAddr>::new(),
+        Some(ips) => ips.clone(),
+    };
+
+    config.populate_untrusted_ips().expect("should be a no-op");
+
+    let new_untrusted = match config.get_untrusted_ips() {
+        None => HashSet::<IpAddr>::new(),
+        Some(ips) => ips.clone(),
+    };
+
+    assert_eq!(untrusted.len(), 1, "expected a single configured ip");
+    assert_eq!(untrusted, new_untrusted);
+}
+
 /// create a config, and some sdc nic ips, and verify that only those
 /// ips that are not explictly configured in some other capacity, get
 /// added as untrusted ips
