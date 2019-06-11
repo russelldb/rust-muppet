@@ -5,11 +5,8 @@
 mod config;
 mod opts;
 
-use std::env;
-use std::path::PathBuf;
 use std::sync::Mutex;
 
-use clap::{crate_version, value_t};
 use config::Config;
 use slog::{info, o, Drain, Logger};
 use zookeeper::{ZkResult, ZooKeeper};
@@ -25,25 +22,20 @@ fn start_watch(z: &ZooKeeper, c: &Config) {
 }
 
 fn main() {
-    let matches = opts::parse(APP.to_string());
-    let current_dir = env::current_dir().unwrap();
-    let default_config: PathBuf = [current_dir, PathBuf::from("etc/config.json")]
-        .iter()
-        .collect();
-
-    let config_path = value_t!(matches, "file", PathBuf).unwrap_or(default_config);
-
+    let options = opts::Opts::parse(APP.to_string());
     let mut config =
-        config::Config::from_file(config_path.as_path()).expect("Failed to parse config file");
-
+        config::Config::from_file(options.get_config_path()).expect("Failed to parse config file");
+    // TODO have config populate untrusted as part of the construction
+    // above (see config.rs for reasons)
     config
         .populate_untrusted_ips()
         .expect("Failed adding sdc nic ips to config");
 
-    //TODO: Runtime log handling
-    // By default slog makes the decision on what log lines to include at
-    // compile time. There is a way to do runtime selection though.
-    match matches.occurrences_of("verbose") {
+    //TODO: Runtime log handling (Move this into config, so we can
+    // just have config.get_log (e.g.)  By default slog makes the
+    // decision on what log lines to include at compile time. There is
+    // a way to do runtime selection though.
+    match options.get_verbose_count() {
         0 => println!("No verbose info"),
         1 => println!("Some verbose info"),
         2 => println!("Tons of verbose info"),
@@ -52,7 +44,7 @@ fn main() {
 
     let root_log = Logger::root(
         Mutex::new(slog_bunyan::default(std::io::stdout())).fuse(),
-        o!("build-id" => crate_version!()),
+        o!("build-id" => options.crate_version()),
     );
 
     info!(root_log, "muppet has started");
